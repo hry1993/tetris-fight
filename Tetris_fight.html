@@ -1,0 +1,785 @@
+<!doctype html>
+<html>
+
+<head>
+	<title>Final Project</title>
+	<meta charset="utf-8" />
+	<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+	<link rel="stylesheet" href="https://stackpath.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css" integrity="sha384-MCw98/SFnGE8fJT3GXwEOngsV7Zt27NXFoaoApmYm81iuXoPkFOJwJ8ERdknLPMO"
+	 crossorigin="anonymous">
+	<style>
+		.center {
+			width: fit-content;
+			margin: 0 auto;
+			text-align: center;
+		}
+
+		.buttoncontainer {
+			width: 200px;
+			margin: 0 auto;
+			text-align: center;
+		}
+
+		input {
+			font-size:25px;
+		}
+
+		.surfaceContainer {
+			display: flex;
+			justify-content: space-between;
+			width: 1400px;
+			padding: 20px;
+		}
+
+		.inform {
+   			display: flex;
+   			align-items: center;
+   			justify-content: center;
+   			flex-flow: column wrap;
+  			align-content: stretch;
+		}
+
+		.gamecontainer {
+			display: flex;
+			justify-content: space-between;
+		}
+
+		.items {
+			display: flex;
+			flex-direction: column;
+		}
+
+		.items>canvas {
+			margin: 20px;
+		}
+
+		.items>p {
+			text-align: center;
+		}
+
+		.items>.slot {
+			margin: 20px;
+		}
+
+		.slot {
+			display: flex;
+			justify-content: space-between;
+		}
+
+		.slot>div {
+			visibility: hidden;
+			height: 25px;
+			width: 25px;
+			background-color: #bbb;
+			border-radius: 50%;
+			display: inline-block;
+		}
+
+		#result {
+			visibility: hidden;
+			font-size:30px;
+			padding:10px;
+		}
+	</style>
+</head>
+
+<body onload="firstPlayer.draw()">
+	<div class="center">
+		<p>Welcom to Tetris Fight</p>
+		<p>Eliminate to gain score! Spend score to attack! Keep attacking to win!</p>
+		<p>chaos: Let the next square of opponent to be an unusual one, which costs 12 score. deduct: Deduct opponent 6
+			score, which costs 8 score.</p>
+		<p>speed: Let the next square of opponent to be extremely fast, which costs 4 score. attack: Add one gray point,
+			which costs 8 score.</p>
+		<p>Every time eliminating one row, generate 1 gray point. More rows at the same time, more score.</p>
+		<p>Every time getting 3 gray point, there will be one row added in the bottom of opponent board.</p>
+		<div class="buttoncontainer">
+			<input id="start" class="btn btn-outline-secondary btn-block" type="button" value="start" onclick="begin()">
+			<input id="pause" class="btn btn-outline-secondary btn-block" type="button" value="pause" onclick="pause()">
+		</div>
+		<div class="surfaceContainer">
+			<div class="gamecontainer">
+				<div class="inform">
+					<p>1P</p>
+					<p>Left: a</p>
+					<p>Right: d</p>
+					<p>Fall: w</p>
+					<p>Down: s</p>
+					<p>Rotate: q</p>
+					<p>Hold: e</p>
+					<p>chaos: 1</p>
+					<p>speed: 2</p>
+					<p>Attack: 3</p>
+					<p>Deduct: 4</p>
+				</div>
+				<div class="items">
+					<p>Next</p>
+					<canvas id="firstNext" width="160" height="120"></canvas>
+					<p>Hold</p>
+					<canvas id="firstHold" width="160" height="120"></canvas>
+					<p id="firstScore">Score: 50</p>
+					<div class="slot">
+						<div id="firstDot1"></div>
+						<div id="firstDot2"></div>
+						<div id="firstDot3"></div>
+					</div>
+				</div>
+				<canvas id="first" width="400" height="800"></canvas>
+			</div>
+			<div class="gamecontainer">
+				<canvas id="second" width="400" height="800"></canvas>
+				<div class="items">
+					<p>Next</p>
+					<canvas id="secondNext" width="160" height="120"></canvas>
+					<p>Hold</p>
+					<canvas id="secondHold" width="160" height="120"></canvas>
+					<p id="secondScore">Score: 50</p>
+					<div class="slot">
+						<div id="secondDot1"></div>
+						<div id="secondDot2"></div>
+						<div id="secondDot3"></div>
+					</div>
+				</div>
+				<div class="inform">
+					<p>2P</p>
+					<p>Left: ←</p>
+					<p>Right: →</p>
+					<p>Fall: ↑</p>
+					<p>Down: ↓</p>
+					<p>Rotate: .</p>
+					<p>Hold: /</p>
+					<p>chaos: k</p>
+					<p>speed: l</p>
+					<p>Attack: ;</p>
+					<p>Deduct: '</p>
+				</div>
+			</div>
+		</div>
+		<div id="result"></div>
+	</div>
+
+	<script>
+		class Point {
+			constructor(x, y) {
+				this.x = x;
+				this.y = y;
+			}
+		}
+
+		class GameLogic {
+			constructor(player, canvas, canvasNext, canvasHold, scoreText, dot1, dot2, dot3) {
+				this.player = player;
+				this.ctx = canvas.getContext('2d');
+				this.ctxNext = canvasNext.getContext('2d');
+				this.ctxHold = canvasHold.getContext('2d');
+				this.scoreText = scoreText;
+				this.dot1 = dot1;
+				this.dot2 = dot2;
+				this.dot3 = dot3;
+				this.opponent;
+				this.regularSquares = [
+					[
+						[new Point(0, 0), new Point(1, 0), new Point(2, 0), new Point(3, 0)],
+						[new Point(0, 0), new Point(0, 1), new Point(0, 2), new Point(0, 3)],
+						[new Point(0, 0), new Point(1, 0), new Point(2, 0), new Point(3, 0)],
+						[new Point(0, 0), new Point(0, 1), new Point(0, 2), new Point(0, 3)]
+					],
+					[
+						[new Point(0, 0), new Point(1, 0), new Point(2, 0), new Point(0, 1)],
+						[new Point(1, 0), new Point(1, 1), new Point(1, 2), new Point(0, 0)],
+						[new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(2, 0)],
+						[new Point(0, 0), new Point(0, 1), new Point(0, 2), new Point(1, 2)]
+					],
+					[
+						[new Point(0, 0), new Point(1, 0), new Point(2, 0), new Point(2, 1)],
+						[new Point(1, 0), new Point(1, 1), new Point(1, 2), new Point(0, 2)],
+						[new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(0, 0)],
+						[new Point(0, 0), new Point(0, 1), new Point(0, 2), new Point(1, 0)]
+					],
+					[
+						[new Point(0, 0), new Point(0, 1), new Point(1, 0), new Point(1, 1)],
+						[new Point(0, 0), new Point(0, 1), new Point(1, 0), new Point(1, 1)],
+						[new Point(0, 0), new Point(0, 1), new Point(1, 0), new Point(1, 1)],
+						[new Point(0, 0), new Point(0, 1), new Point(1, 0), new Point(1, 1)]
+					],
+					[
+						[new Point(1, 0), new Point(2, 0), new Point(0, 1), new Point(1, 1)],
+						[new Point(0, 0), new Point(0, 1), new Point(1, 1), new Point(1, 2)],
+						[new Point(1, 0), new Point(2, 0), new Point(0, 1), new Point(1, 1)],
+						[new Point(0, 0), new Point(0, 1), new Point(1, 1), new Point(1, 2)]
+					],
+					[
+						[new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(2, 1)],
+						[new Point(0, 0), new Point(0, 1), new Point(1, 1), new Point(0, 2)],
+						[new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(1, 2)],
+						[new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(1, 2)]
+					],
+					[
+						[new Point(0, 0), new Point(1, 0), new Point(1, 1), new Point(2, 1)],
+						[new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(0, 2)],
+						[new Point(0, 0), new Point(1, 0), new Point(1, 1), new Point(2, 1)],
+						[new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(0, 2)]
+					]
+				];
+
+				this.chaosSquares = [
+					[
+						[new Point(0, 0), new Point(1, 0), new Point(2, 0), new Point(1, 1), new Point(2, 1)],
+						[new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(0, 2), new Point(1, 2)],
+						[new Point(0, 0), new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(2, 1)],
+						[new Point(0, 0), new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(0, 2)]
+					],
+					[
+						[new Point(0, 0), new Point(1, 0), new Point(2, 0), new Point(0, 1), new Point(1, 1)],
+						[new Point(0, 0), new Point(1, 0), new Point(0, 1), new Point(1, 1), new Point(1, 2)],
+						[new Point(0, 0), new Point(1, 0), new Point(1, 1), new Point(2, 0), new Point(2, 1)],
+						[new Point(0, 0), new Point(0, 1), new Point(0, 2), new Point(1, 1), new Point(1, 2)]
+					],
+					[
+						[new Point(0, 0), new Point(1, 0), new Point(1, 1), new Point(2, 1), new Point(2, 2)],
+						[new Point(2, 0), new Point(2, 1), new Point(1, 1), new Point(1, 2), new Point(0, 2)],
+						[new Point(0, 0), new Point(0, 1), new Point(1, 1), new Point(1, 2), new Point(2, 2)],
+						[new Point(1, 0), new Point(2, 0), new Point(1, 1), new Point(0, 1), new Point(0, 2)]
+					],
+					[
+						[new Point(0, 0), new Point(1, 0), new Point(2, 0), new Point(3, 0), new Point(3, 1)],
+						[new Point(1, 0), new Point(1, 1), new Point(1, 2), new Point(1, 3), new Point(0, 3)],
+						[new Point(0, 0), new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(3, 1)],
+						[new Point(0, 0), new Point(0, 1), new Point(0, 2), new Point(0, 3), new Point(1, 0)]
+					],
+					[
+						[new Point(0, 0), new Point(1, 0), new Point(2, 0), new Point(3, 0), new Point(0, 1)],
+						[new Point(0, 0), new Point(1, 0), new Point(1, 1), new Point(1, 2), new Point(1, 3)],
+						[new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(3, 1), new Point(3, 0)],
+						[new Point(0, 0), new Point(0, 1), new Point(0, 2), new Point(0, 3), new Point(1, 3)]
+					],
+					[
+						[new Point(0, 0), new Point(1, 0), new Point(2, 0), new Point(0, 1), new Point(2, 1)],
+						[new Point(0, 0), new Point(1, 0), new Point(1, 1), new Point(1, 2), new Point(0, 2)],
+						[new Point(0, 0), new Point(0, 1), new Point(1, 1), new Point(2, 1), new Point(2, 0)],
+						[new Point(0, 0), new Point(1, 0), new Point(0, 1), new Point(0, 2), new Point(1, 2)]
+					],
+					[
+						[new Point(0, 0), new Point(1, 0), new Point(2, 0), new Point(0, 1), new Point(0, 2)],
+						[new Point(0, 0), new Point(1, 0), new Point(2, 0), new Point(2, 1), new Point(2, 2)],
+						[new Point(2, 0), new Point(2, 1), new Point(2, 2), new Point(1, 2), new Point(0, 2)],
+						[new Point(0, 0), new Point(0, 1), new Point(0, 2), new Point(1, 2), new Point(2, 2)]
+					]
+				];
+				this.squares = this.regularSquares;
+				this.holdSquares = this.regularSquares;
+				this.nextSquares = this.regularSquares;
+				this.dropCheck = 0;
+				this.holdCheck = 0;
+				this.nextCheck = 0;
+				//above are used to handle corner case of holding chaos squares.
+				this.squareColors = ['#8A2BE2', '#0000FF', '#00FFFF', '#FFD700', '#32CD32', '#CD853F', '#FF0000'];
+				this.position = new Point(0, 0);
+				this.rotation = 0;
+				this.shape = 0;
+				this.shapeNext = 0;
+				this.shapeHold = -1;
+				this.chaosCount = 0;
+				this.speedCount = 0;
+				this.attackedCount = 0;
+				this.score = 50;
+				this.checker = new Array();
+				this.delay = 1000;
+				this.thread;
+			}
+			//reset the game data to initial state
+			init() {
+				for (var i = 0; i < 12; i++) {
+					this.checker[i] = new Array();
+					for (var j = 0; j < 22; j++) {
+						if (i == 0 || i == 11 || j == 21) {
+							this.checker[i][j] = "#000000"
+						} else {
+							this.checker[i][j] = "#FFFFFF"
+						}
+					}
+					this.rotation = 0;
+					this.shape = 0;
+					this.shapeNext = 0;
+					this.shapeHold = -1;
+					this.chaosCount = 0;
+					this.speedCount = 0;
+					this.attackedCount = 0;
+					this.score = 50;
+					this.delay = 1000;
+					this.squares = this.regularSquares;
+					this.holdSquares = this.regularSquares;
+					this.nextSquares = this.regularSquares;
+					this.dropCheck = 0;
+					this.holdCheck = 0;
+					this.nextCheck = 0;
+					this.scoreText.innerHTML = "Score: " + this.score;
+					this.nextSquare();
+					this.newSquare();
+				}
+			}
+			//generate the data for nextsquare
+			nextSquare() {
+				if (this.chaosCount > 0) {
+					this.nextSquares = this.chaosSquares;
+					this.nextCheck = 1;
+					this.chaosCount--;
+				} else {
+					this.nextSquares = this.regularSquares;
+					this.nextCheck = 0;
+				}
+				if (this.speedCount > 0) {
+					this.delay = 100;
+					this.speedCount--;
+				} else {
+					this.delay = 1000;
+				}
+				this.shapeNext = Math.floor(Math.random() * 7);
+				this.drawNext();
+			}
+			//transfer nextsquare to current
+			newSquare() {
+				this.squares = this.nextSquares;
+				this.dropCheck = this.nextCheck;
+				this.position = new Point(5, 0);
+				this.rotation = 0;
+				this.shape = this.shapeNext;
+				this.nextSquare();
+			}
+			//catch the current square at the first time, and exchange at the second time
+			hold() {
+				if (this.shapeHold == -1) {
+					this.shapeHold = this.shape;
+					this.holdCheck = this.dropCheck;
+					this.holdSquares = this.squares;
+					this.newSquare();
+				} else if (!this.unHoldable()) {
+					if (this.dropCheck == 1 && this.holdCheck == 0) {
+						this.squares = this.regularSquares;
+						this.holdSquares = this.chaosSquares;
+						this.dropCheck = 0;
+						this.holdCheck = 1;
+					} else if (this.dropCheck == 0 && this.holdCheck == 1) {
+						this.squares = this.chaosSquares;
+						this.holdSquares = this.regularSquares;
+						this.dropCheck = 1;
+						this.holdCheck = 0;
+					}
+					let temp = this.shape;
+					this.shape = this.shapeHold;
+					this.shapeHold = temp;
+				}
+				this.draw();
+				this.drawHold();
+			}
+			//to prevent hold causing errors
+			unHoldable() {
+				for (var p of this.holdSquares[this.shapeHold][this.rotation]) {
+					if (this.checker[p.x + this.position.x][p.y + this.position.y] != "#FFFFFF") {
+						return true;
+					}
+				}
+				return false;
+			}
+			//to prevent squares droping to wrong position
+			unMovable(x, y, rotation) {
+				for (var p of this.squares[this.shape][rotation]) {
+					if (this.checker[p.x + x][p.y + y] != "#FFFFFF") {
+						return true;
+					}
+				}
+				return false;
+			}
+			//logic for fall operation
+			fall() {
+				while (!this.unMovable(this.position.x, this.position.y + 1, this.rotation)) {
+					this.position.y++;
+				}
+				this.insert();
+				this.draw();
+			}
+			//logic for rotate operation
+			rotate() {
+				if (!this.unMovable(this.position.x, this.position.y, (this.rotation + 1) % 4)) {
+					this.rotation = (this.rotation + 1) % 4;
+				}
+				this.draw();
+			}
+			//logic for left and right operation
+			move(step) {
+				if (!this.unMovable(this.position.x + step, this.position.y, this.rotation)) {
+					this.position.x += step;
+				}
+				this.draw();
+			}
+			//logic for slow drop operation
+			down() {
+				if (!this.unMovable(this.position.x, this.position.y + 1, this.rotation)) {
+					this.position.y++;
+				} else {
+					this.insert();
+				}
+				this.draw();
+			}
+			//the droping squares thread
+			drop() {
+				this.thread = setTimeout(() => {
+					this.drop();
+				}, this.delay);
+				if (!this.unMovable(this.position.x, this.position.y + 1, this.rotation)) {
+					this.position.y++;
+				} else {
+					this.insert();
+				}
+				this.draw();
+			}
+			//eliminate a single row when filled.
+			clearRow(row) {
+				for (var j = row; j > 1; j--) {
+					for (var i = 1; i < 11; i++) {
+						this.checker[i][j] = this.checker[i][j - 1];
+					}
+				}
+				this.draw();
+			}
+			//checking for which row is filled.
+			clearRows() {
+				let number = 0;
+				for (var j = 20; j >= 1; j--) {
+					let full = false;
+					for (var i = 1; i < 11; i++) {
+						if (this.checker[i][j] == "#FFFFFF") {
+							full = true;
+							break;
+						}
+					}
+					if (!full) {
+						this.clearRow(j);
+						j++;
+						number++;
+					}
+				}
+				this.opponent.attackedCount += number;
+				switch (number) {
+					case 1: this.score += 1; break;
+					case 2: this.score += 2; break;
+					case 3: this.score += 4; break;
+					case 4: this.score += 8; break;
+				}
+				//draw the gray dot
+				switch (this.opponent.attackedCount) {
+					case 0: this.dot1.style.visibility = "hidden";
+						this.dot2.style.visibility = "hidden";
+						this.dot3.style.visibility = "hidden";
+						break;
+					case 1: this.dot1.style.visibility = "visible";
+						this.dot2.style.visibility = "hidden";
+						this.dot3.style.visibility = "hidden";
+						break;
+					case 2: this.dot1.style.visibility = "visible";
+						this.dot2.style.visibility = "visible";
+						this.dot3.style.visibility = "hidden";
+						break;
+					default: this.dot1.style.visibility = "visible";
+						this.dot2.style.visibility = "visible";
+						this.dot3.style.visibility = "visible";
+						break;
+				}
+				this.scoreText.innerHTML = "Score: " + this.score;
+				this.draw();
+			}
+			//chaos skill function
+			chaos() {
+				if (this.score >= 12) {
+					this.opponent.chaosCount += 1;
+					this.score -= 12;
+					this.scoreText.innerHTML = "Score: " + this.score;
+				}
+			}
+			//speed skill function
+			speed() {
+				if (this.score >= 4) {
+					this.opponent.speedCount += 1;
+					this.score -= 4;
+					this.scoreText.innerHTML = "Score: " + this.score;
+				}
+			}
+			//attack skill function
+			attack() {
+				if (this.score >= 8) {
+					this.opponent.attackedCount += 1;
+					this.score -= 8;
+					this.scoreText.innerHTML = "Score: " + this.score;
+				}
+			}
+			//deduct skill function
+			deduct() {
+				if (this.score >= 8) {
+					if (this.opponent.score >= 6) {
+						this.opponent.score -= 6;
+
+					} else {
+						this.opponent.score = 0;
+					}
+					this.opponent.scoreText.innerHTML = "Score: " + this.opponent.score;
+					this.score -= 8;
+					this.scoreText.innerHTML = "Score: " + this.score;
+				}
+			}
+			//add one row to opponent when having three gray points
+			addRow() {
+				let addable = true;
+				for (var i = 1; i < 11; i++) {
+					if (this.checker[1][0] != "#FFFFFF") {
+						addable = false;
+					}
+				}
+				if (addable) {
+					for (var j = 1; j < 20; j++) {
+						for (var i = 1; i < 11; i++) {
+							this.checker[i][j] = this.checker[i][j + 1];
+						}
+					}
+					for (var i = 1; i < 11; i++) {
+						this.checker[i][20] = "#696969"
+					}
+				}
+				this.checker[Math.floor(Math.random() * 10) + 1][20] = "#FFFFFF";
+				this.draw();
+			}
+			//check if the squares reach the top and end the game when reaching
+			gameOver() {
+				for (var i = 1; i < 11; i++) {
+					if (this.checker[i][1] != "#FFFFFF") {
+						clearTimeout(this.thread);
+						clearTimeout(this.opponent.thread);
+						document.getElementById("result").innerHTML = this.opponent.player + " win!!!";
+						document.getElementById("result").style.visibility = "visible";
+						document.getElementById("start").onclick = restart;
+						document.getElementById("start").value = "restart";
+						document.removeEventListener("keydown", firstListener);
+						document.removeEventListener("keydown", secondListener);
+						running = false;
+					}
+				}
+			}
+			//let the squares stop at correct position
+			insert() {
+				this.squares[this.shape][this.rotation].forEach(point => {
+					this.checker[point.x + this.position.x][point.y + this.position.y] = this.squareColors[this.shape];
+				});
+				this.clearRows();
+				while (this.attackedCount >= 3) {
+					this.attackedCount -= 3;
+					this.addRow();
+				}
+				this.gameOver();
+				this.draw();
+				this.newSquare();
+			}
+			//draw interface of the canvas
+			draw() {
+				for (var j = 1; j < 21; j++) {
+					for (var i = 1; i < 11; i++) {
+						this.ctx.fillStyle = this.checker[i][j];
+						this.ctx.fillRect((i - 1) * 40, (j - 1) * 40, 40, 40);
+					}
+				}
+				this.ctx.fillStyle = this.squareColors[this.shape];
+				this.squares[this.shape][this.rotation].forEach(point => {
+					this.ctx.fillRect((point.x + this.position.x - 1) * 40, (point.y + this.position.y - 1) * 40, 40, 40);
+				});
+				this.ctx.beginPath();
+				for (var i = 0; i < 21; i++) {
+					this.ctx.moveTo(0, 40 * i);
+					this.ctx.lineTo(400, 40 * i);
+				}
+				for (var i = 0; i < 11; i++) {
+					this.ctx.moveTo(40 * i, 0);
+					this.ctx.lineTo(40 * i, 800);
+				}
+				this.ctx.lineWidth = 3;
+				this.ctx.strokeStyle = '#DCDCDC';
+				this.ctx.stroke();
+			}
+			//draw nextsquare interface
+			drawNext() {
+				this.ctxNext.clearRect(0, 0, 160, 120);
+				this.ctxNext.fillStyle = this.squareColors[this.shapeNext];
+				this.nextSquares[this.shapeNext][0].forEach(point => {
+					this.ctxNext.fillRect((point.x) * 40, (point.y) * 40, 40, 40);
+				});
+				this.ctxNext.beginPath();
+				for (var i = 0; i < 4; i++) {
+					this.ctxNext.moveTo(0, 40 * i);
+					this.ctxNext.lineTo(400, 40 * i);
+				}
+				for (var i = 0; i < 5; i++) {
+					this.ctxNext.moveTo(40 * i, 0);
+					this.ctxNext.lineTo(40 * i, 800);
+				}
+				this.ctxNext.lineWidth = 3;
+				this.ctxNext.strokeStyle = '#DCDCDC';
+				this.ctxNext.stroke();
+			}
+			//draw holdsquare interface
+			drawHold() {
+				this.ctxHold.clearRect(0, 0, 160, 120);
+				if (this.shapeHold != -1) {
+					this.ctxHold.clearRect(0, 0, 160, 120);
+					this.ctxHold.fillStyle = this.squareColors[this.shapeHold];
+					this.holdSquares[this.shapeHold][0].forEach(point => {
+						this.ctxHold.fillRect((point.x) * 40, (point.y) * 40, 40, 40);
+					});
+				}
+				this.ctxHold.beginPath();
+				for (var i = 0; i < 4; i++) {
+					this.ctxHold.moveTo(0, 40 * i);
+					this.ctxHold.lineTo(400, 40 * i);
+				}
+				for (var i = 0; i < 5; i++) {
+					this.ctxHold.moveTo(40 * i, 0);
+					this.ctxHold.lineTo(40 * i, 800);
+				}
+				this.ctxHold.lineWidth = 3;
+				this.ctxHold.strokeStyle = '#DCDCDC';
+				this.ctxHold.stroke();
+			}
+		}
+		//genrate the object for game.
+		firstPlayer = new GameLogic("1P", document.getElementById('first'), document.getElementById('firstNext'), document.getElementById('firstHold'), document.getElementById('firstScore'), document.getElementById('firstDot1'), document.getElementById('firstDot2'), document.getElementById('firstDot3'));
+		secondPlayer = new GameLogic("2P", document.getElementById('second'), document.getElementById('secondNext'), document.getElementById('secondHold'), document.getElementById('secondScore'), document.getElementById('secondDot1'), document.getElementById('secondDot2'), document.getElementById('secondDot3'));
+		//first player keyboard listener
+		function firstListener(e) {
+			e = e || window.event;
+			switch (e.keyCode) {
+				case 87:
+					// up arrow
+					firstPlayer.fall();
+					break;
+				case 83:
+					// down arrow
+					firstPlayer.down();
+					break;
+				case 65:
+					// left arrow
+					firstPlayer.move(-1);
+					break;
+				case 68:
+					// right arrow
+					firstPlayer.move(1);
+					break;
+				case 81:
+					// ?/
+					firstPlayer.rotate(1);
+					break;
+				case 69:
+					// >.
+					firstPlayer.hold(1);
+					break;
+				case 49:
+					// 1!
+					firstPlayer.chaos();
+					break;
+				case 50:
+					// 2@
+					firstPlayer.speed();
+					break;
+				case 51:
+					// 3#
+					firstPlayer.attack();
+					break;
+				case 52:
+					// 4$
+					firstPlayer.deduct();
+					break;
+			}
+		}
+		//second player keyboard listener
+		function secondListener(e) {
+			e = e || window.event;
+			switch (e.keyCode) {
+				case 38:
+					// up arrow
+					secondPlayer.fall();
+					break;
+				case 40:
+					// down arrow
+					secondPlayer.down();
+					break;
+				case 37:
+					// left arrow
+					secondPlayer.move(-1);
+					break;
+				case 39:
+					// right arrow
+					secondPlayer.move(1);
+					break;
+				case 190:
+					// ?/
+					secondPlayer.rotate(1);
+					break;
+				case 191:
+					// >.
+					secondPlayer.hold(1);
+					break;
+				case 75:
+					// k
+					secondPlayer.chaos();
+					break;
+				case 76:
+					// l
+					secondPlayer.speed();
+					break;
+				case 186:
+					// ;:
+					secondPlayer.attack();
+					break;
+				case 222:
+					//"'
+					secondPlayer.deduct();
+					break;
+			}
+		}
+		firstPlayer.opponent = secondPlayer;
+		secondPlayer.opponent = firstPlayer;
+		var running = false;
+		restart();
+		pause();
+		//start button onclick
+		function begin() {
+			if (!running) {
+				firstPlayer.drop();
+				secondPlayer.drop();
+				document.addEventListener("keydown", firstListener);
+				document.addEventListener("keydown", secondListener);
+				running = true;
+			}
+		}
+		//pause button onclick
+		function pause() {
+			if (running) {
+				clearTimeout(firstPlayer.thread);
+				clearTimeout(secondPlayer.thread);
+				document.removeEventListener("keydown", firstListener);
+				document.removeEventListener("keydown", secondListener);
+				running = false;
+			}
+		}
+		//restart button onclick
+		function restart() {
+			secondPlayer.init();
+			secondPlayer.draw();
+			secondPlayer.drawHold();
+			firstPlayer.init();
+			firstPlayer.draw();
+			firstPlayer.drawHold();
+			begin();
+			document.getElementById("result").style.visibility = "hidden";
+			document.getElementById("start").onclick = begin;
+			document.getElementById("start").value = "start";
+		}
+	</script>
+</body>
+
+</html>
